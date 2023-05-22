@@ -46,7 +46,8 @@ int main()
                 constexpr double T_s = 1.0 / UPDATE_RATE_HZ;
                 constexpr int32_t slpPrd_us = (int32_t)T_s * 1000000;
                 std::thread tu = paddleCtrlObj->commandUpdate();
-                paddleCtrlObj->ReadSerialBuff();
+                paddleCtrlObj->readSerialBuff();
+                paddleCtrlObj->processReceived();
                 std::this_thread::sleep_for(std::chrono::microseconds(slpPrd_us));
                 tu.join();
             }

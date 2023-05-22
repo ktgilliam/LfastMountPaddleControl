@@ -1,22 +1,13 @@
-#include <CppLinuxSerial/SerialPort.hpp>
 #include "PaddleController.h"
 
-#include "config.h"
 #include <cmath>
 #include <iostream>
-// #include <stdio.h> // standard input / output functions
-// #include <stdlib.h>
-
 #include <cstring> // string function definitions
-// #include <chrono>
-// #include <thread>
+#include <chrono>
+#include <thread>
+#include <regex>
 
-
-// #include <unistd.h>  // UNIX standard function definitions
-// #include <fcntl.h>   // File control definitions
-// #include <errno.h>   // Error number definitions
-// #include <termios.h> // POSIX terminal control definitions
-
+#include "config.h"
 using namespace mn::CppLinuxSerial;
 
 SerialPort *paddleSerial;
@@ -26,7 +17,7 @@ using namespace std::chrono_literals;
 PaddleController::PaddleController(const char *devPath, uint32_t baud)
 {
     // configureSerialComms(devPath);
-    size = RX_BUFF_SIZE;
+    // size = RX_BUFF_SIZE;
     paddleSerial = new SerialPort(devPath, BaudRate::B_9600, NumDataBits::EIGHT, Parity::NONE, NumStopBits::ONE);
     paddleSerial->SetTimeout(100); // Block for up to 100ms to receive data
     paddleSerial->Open();
@@ -41,25 +32,62 @@ PaddleController::PaddleController(const char *devPath, uint32_t baud)
     AzMotorBCommand = 0.0;
     connected = false;
 }
-void PaddleController::ReadSerialBuff()
+void PaddleController::readSerialBuff()
 {
     // char data[RX_BUFF_SIZE];
     // std::memset(data, '\0', sizeof(data));
     std::string rxData;
-    ReadSerialBuff(rxData);
+    readSerialBuff(rxData);
+    receivedStrings.push_back(rxData);
 }
-void PaddleController::ReadSerialBuff(std::string &data)
+void PaddleController::readSerialBuff(std::string &data)
 {
     paddleSerial->Read(data);
-	std::cout << "Read data = \"" << data << "\"" << std::endl;
 }
 
-void PaddleController::parseReceived(char *buf)
+void PaddleController::processReceived()
 {
     // size_t pos = 0;
-    uint32_t firstFour = *buf;
+    // uint32_t firstFour = *buf;
+    try
+    {
+        std::regex rgx("\\{(EL|AZ):([-+]?[0-9]*\\.[0-9]+|[0-9]+)\\}");
 
-    int a = 5;
+        // std::regex rgx("\\{(AZ)");
+        // std::regex rgx(R"({(EL|AZ):([-+]?[0-9]*\.[0-9]+|[0-9]+)})");
+        // std::regex rgx(R"('{(EL|AZ):')");
+        for (auto &data : receivedStrings)
+        {
+            std::smatch matches;
+            if (std::regex_search(data, matches, rgx))
+            {
+                // std::cout << "Match found\n";
+                if (matches.size() == 3)
+                {
+                    std::string axisStr = matches[1];
+                    std::string valStr = matches[2];
+                    double val = std::stof(valStr);
+                    int b = 4;
+                }
+                for (size_t ii = 0; ii < matches.size(); ++ii)
+                {
+                    std::cout << ii << ": '" << matches[ii].str() << "'\n";
+                }
+            }
+            else
+            {
+                // std::cout << "Match not found\n";
+            }
+
+            // std::cout << "Read data = \"" << data << "\"" << std::endl;
+        }
+        receivedStrings.clear();
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << e.what() << '\n';
+        int a = 5;
+    }
 }
 
 bool PaddleController::connectToDrivers(const char *devPath)

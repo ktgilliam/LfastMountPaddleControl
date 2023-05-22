@@ -1,8 +1,8 @@
-#include "KincoDriver.h"
+#include <CppLinuxSerial/SerialPort.hpp>
 #include <thread>
-#include <vector>
+#include <deque>
 #include <string>
-
+#include "KincoDriver.h"
 
 class PaddleController
 {
@@ -26,21 +26,21 @@ private:
 
     void updateCommands();
     void configureSerialComms(const char *devPath);
-    void parseReceived(char* buf);
 
-
+    std::deque<std::string> receivedStrings;
     // boost::asio::io_service io;
     // boost::asio::serial_port serial;
     // boost::asio::streambuf readData; ///< Holds eventual read but not consumed
     // std::string readData;
     // SerialPort *paddleSerial;
-    size_t size;
-    char *dataBuff; ///< Pointer to data array (valid if fixedSize=true)
+    // size_t size;
+    // char *dataBuff; ///< Pointer to data array (valid if fixedSize=true)
 public:
     PaddleController(const char* devPath, uint32_t baud);
-    void ReadSerialBuff();
-    // std::string ReadSerialBuff(char *data, size_t size);
-    void ReadSerialBuff(std::string &data);
+    void readSerialBuff();
+    void processReceived();
+    // std::string readSerialBuff(char *data, size_t size);
+    void readSerialBuff(std::string &data);
     #if defined(LFAST_TERMINAL)
     void setupTerminal(TerminalInterface *);
     #endif
