@@ -2,7 +2,7 @@
 #include <thread>
 #include <vector>
 #include <string>
-#include <boost/asio.hpp>
+
 
 class PaddleController
 {
@@ -29,16 +29,18 @@ private:
     void parseReceived(char* buf);
 
 
-    boost::asio::io_service io;
-    boost::asio::serial_port serial;
-    boost::asio::streambuf readData; ///< Holds eventual read but not consumed
+    // boost::asio::io_service io;
+    // boost::asio::serial_port serial;
+    // boost::asio::streambuf readData; ///< Holds eventual read but not consumed
+    // std::string readData;
+    // SerialPort *paddleSerial;
     size_t size;
     char *dataBuff; ///< Pointer to data array (valid if fixedSize=true)
 public:
     PaddleController(const char* devPath, uint32_t baud);
     void ReadSerialBuff();
-    std::string ReadSerialBuff(char *data, size_t size);
-
+    // std::string ReadSerialBuff(char *data, size_t size);
+    void ReadSerialBuff(std::string &data);
     #if defined(LFAST_TERMINAL)
     void setupTerminal(TerminalInterface *);
     #endif

@@ -1,26 +1,36 @@
+#include <CppLinuxSerial/SerialPort.hpp>
 #include "PaddleController.h"
+
 #include "config.h"
 #include <cmath>
-
 #include <iostream>
-#include <stdio.h> // standard input / output functions
-#include <stdlib.h>
-#include <string.h> // string function definitions
+// #include <stdio.h> // standard input / output functions
+// #include <stdlib.h>
 
-#include <unistd.h>  // UNIX standard function definitions
-#include <fcntl.h>   // File control definitions
-#include <errno.h>   // Error number definitions
-#include <termios.h> // POSIX terminal control definitions
+#include <cstring> // string function definitions
+// #include <chrono>
+// #include <thread>
 
 
+// #include <unistd.h>  // UNIX standard function definitions
+// #include <fcntl.h>   // File control definitions
+// #include <errno.h>   // Error number definitions
+// #include <termios.h> // POSIX terminal control definitions
+
+using namespace mn::CppLinuxSerial;
+
+SerialPort *paddleSerial;
+using namespace std::chrono_literals;
 // int drvAID = 1;
 // int drvBID = 2;
 PaddleController::PaddleController(const char *devPath, uint32_t baud)
-: io(), serial(io, devPath)
 {
     // configureSerialComms(devPath);
     size = RX_BUFF_SIZE;
-    serial.set_option(boost::asio::serial_port_base::baud_rate(baud));
+    paddleSerial = new SerialPort(devPath, BaudRate::B_9600, NumDataBits::EIGHT, Parity::NONE, NumStopBits::ONE);
+    paddleSerial->SetTimeout(100); // Block for up to 100ms to receive data
+    paddleSerial->Open();
+    std::this_thread::sleep_for(100ms);
     pAzDriveA = new KincoDriver(AZ_DRIVER_ID_A);
     pAzDriveB = new KincoDriver(AZ_DRIVER_ID_B);
     pElDriveA = new KincoDriver(EL_DRIVER_ID_A);
@@ -33,122 +43,17 @@ PaddleController::PaddleController(const char *devPath, uint32_t baud)
 }
 void PaddleController::ReadSerialBuff()
 {
-    char data[RX_BUFF_SIZE];
-    std::memset(data, '\0', sizeof(data));
-    std::string received = ReadSerialBuff(data, RX_BUFF_SIZE);
+    // char data[RX_BUFF_SIZE];
+    // std::memset(data, '\0', sizeof(data));
+    std::string rxData;
+    ReadSerialBuff(rxData);
 }
-std::string PaddleController::ReadSerialBuff(char *data, size_t size)
+void PaddleController::ReadSerialBuff(std::string &data)
 {
-    char c;
-    std::string result;
-
-    if(readData.size()>0)//If there is some data from a previous read
-    {
-        std::istream is(&readData);
-        size_t toRead=std::min(readData.size(),size);//How many bytes to read?
-        is.read(data,toRead);
-        data+=toRead;
-        size-=toRead;
-        if(size==0) return "test";//If read data was enough, just return
-    }
-    return "abcde";
-    
-
-    // for(;;)
-    // {
-    //     boost::asio::read(serial, boost::asio::buffer(&c,1));
-    //     switch(c)
-    //     {
-    //         case '\r':
-    //             break;
-    //         case '\n':
-    //             return result;
-    //         default:
-    //             result+=c;
-    //     }
-    // }
+    paddleSerial->Read(data);
+	std::cout << "Read data = \"" << data << "\"" << std::endl;
 }
 
-
-#if defined(NO_BOOST)
-void PaddleController::configureSerialComms(const char *devPath)
-{
-    paddleUSB = open(devPath, O_RDWR | O_NONBLOCK | O_NDELAY);
-    struct termios tty;
-    struct termios tty_old;
-    memset(&tty, 0, sizeof(tty));
-
-    /* Error Handling */
-    if (tcgetattr(paddleUSB, &tty) != 0)
-    {
-        std::cout << "Error " << errno << " from tcgetattr: " << strerror(errno) << std::endl;
-    }
-
-    /* Save old tty parameters */
-    tty_old = tty;
-
-    /* Set Baud Rate */
-    cfsetospeed(&tty, (speed_t)B9600);
-    cfsetispeed(&tty, (speed_t)B9600);
-
-    /* Setting other Port Stuff */
-    tty.c_cflag &= ~PARENB; // Make 8n1
-    tty.c_cflag &= ~CSTOPB;
-    tty.c_cflag &= ~CSIZE;
-    tty.c_cflag |= CS8;
-
-    tty.c_cflag &= ~CRTSCTS;       // no flow control
-    tty.c_cc[VMIN] = 1;            // read doesn't block
-    tty.c_cc[VTIME] = 5;           // 0.5 seconds read timeout
-    tty.c_cflag |= CREAD | CLOCAL; // turn on READ & ignore ctrl lines
-
-    /* Make raw */
-    cfmakeraw(&tty);
-
-    /* Flush Port, then applies attributes */
-    tcflush(paddleUSB, TCIFLUSH);
-    if (tcsetattr(paddleUSB, TCSANOW, &tty) != 0)
-    {
-        std::cout << "Error " << errno << " from tcsetattr" << std::endl;
-    }
-}
-
-void PaddleController::ReadSerialBuff()
-{
-    int n = 0, spot = 0;
-    char buf = '\0';
-
-    /* Whole response*/
-    char response[RX_BUFF_SIZE];
-    memset(response, '\0', sizeof(response));
-
-    do
-    {
-        n = read(paddleUSB, &buf, 1);
-        sprintf(&response[spot], "%c", buf);
-        spot += n;
-    } while (buf != '\r' && n > 0);
-    if (n > 0)
-    {
-        std::cout << "Response: " << response << std::endl;
-        parseReceived(response);
-    }
-    // if (n < 0)
-    // {
-    //     std::cout << "Error reading: " << strerror(errno) << std::endl;
-    // }
-    // else if (n == 0)
-    // {
-    //     std::cout << "Read nothing!" << std::endl;
-    // }
-    // else
-    // {
-    //     std::cout << "Response: " << response << std::endl;
-    //     parseReceived(response);
-    // }
-}
-
-#endif
 void PaddleController::parseReceived(char *buf)
 {
     // size_t pos = 0;
